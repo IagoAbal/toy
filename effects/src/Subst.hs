@@ -63,7 +63,7 @@ instance SubstTarget Effect where
   u $. (InitEff p t) = InitEff (u $. p) (u $. t)
   u $. (ReadEff p) = ReadEff (u $. p)
   u $. (WriteEff p) = WriteEff (u $. p)
-  u $. (UnionEff s1 s2) = UnionEff (u $. s1) (u $. s2)
+  u $. (s1 :+ s2) = (u $. s1) :+ (u $. s2)
 
 instance SubstTarget Type where
   _ $. UnitTy = UnitTy

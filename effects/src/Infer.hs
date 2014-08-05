@@ -40,7 +40,7 @@ infer' env (Let x e e') = do
   let env1 = theta$<env
       env' = extendEnv env1 x (gen k ef env1 ty)
   (theta',ty',ef',k') <- infer' env' e'
-  return (theta'++.theta,ty',UnionEff (theta'$.ef) ef',(theta'$$k) ++ k')
+  return (theta'++.theta,ty',(theta'$.ef) :+ ef',(theta'$$k) ++ k')
 infer' env (App e e') = do
   (theta,ty,ef,k) <- infer' env e
   (theta',ty',ef',k') <- infer' (theta$<env) e'
@@ -49,7 +49,7 @@ infer' env (App e e') = do
   let theta'' = (theta'$.ty) `unify` FunTy ty' ee a
       theta1  = theta''++.theta'++.theta
       ty1     = theta''$.a
-      ef1     = theta''$.((theta'$.ef) `UnionEff` ef' `UnionEff` ee)
+      ef1     = theta''$.((theta'$.ef) :+ ef' :+ ee)
       k1      = theta''$$(theta'$$k ++ k')
   return (theta1,ty1,ef1,k1)
 
