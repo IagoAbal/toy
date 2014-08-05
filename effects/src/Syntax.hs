@@ -25,7 +25,7 @@ type TyVars = [TyVar]
 data TyVar =
   TyVar {
      tvKind :: !Kind
-  , _tvUniq :: !Uniq
+  ,  tvUniq :: !Uniq
   }
   deriving (Eq,Ord)
 
