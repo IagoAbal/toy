@@ -1,40 +1,59 @@
 module Syntax where
 
-import           Data.Foldable ( toList )
-import           Data.Map ( Map )
+-- import           Data.Map ( Map )
 -- import qualified Data.Map as Map
 import           Data.Set ( Set )
-import qualified Data.Set as Set
+-- import qualified Data.Set as Set
 
--- * Abstract Syntax
+import Unique ( Uniq )
 
-type Vars = [Var]
+-------------------------------------------------
+-- * Types
 
-data Var = Var VarKind !Int
+data Type = UnitTy
+           | VarTy !TyVar
+           | RefTy !Region !Type
+           | FunTy !Type !Effect !Type
   deriving (Eq,Ord)
 
-data VarKind = RegKind
-              | EffKind
-              | TypKind
+data Sig = ForallTy !TyVars !Type
+
+-- ** Variables
+
+type TyVars = [TyVar]
+
+data TyVar =
+  TyVar {
+     tvKind :: !Kind
+  , _tvUniq :: !Uniq
+  }
   deriving (Eq,Ord)
 
-isEffectVar :: Var -> Bool
-isEffectVar (Var EffKind _) = True
-isEffectVar __other__       = False
+data Kind = RegKind
+          | EffKind
+          | TypKind
+  deriving (Eq,Ord)
+
+isEffectVar :: TyVar -> Bool
+isEffectVar (TyVar EffKind _) = True
+isEffectVar __other__         = False
+
+-- ** Regions
 
 data RegionId = RID !Int
   deriving (Eq,Ord)
 
 data Region = Reg !RegionId
                 -- ^ Region constants
-             | VarReg !Var
+             | VarReg !TyVar
                 -- ^ Region variables
   deriving (Eq,Ord)
 
+-- ** Effects
 
 data Effect = EmptyEff
                 -- ^ No effect
-             | VarEff !Var
+             | VarEff !TyVar
                 -- ^ Effect variable
              | InitEff !Region !Type
                 -- ^ Alloc effect
@@ -46,22 +65,10 @@ data Effect = EmptyEff
                 -- ^ Effect union
   deriving (Eq,Ord)
 
-data Type = UnitTy
-           | VarTy !Var
-           | RefTy !Region !Type
-           | FunTy !Type !Effect !Type
-  deriving (Eq,Ord)
-
-data Sig = ForallTy !Vars !Type
-
-data Exp = Exp
-
--- * Effects
-
 type StoreEffect = Effect
 
-effectVars :: Effect -> Set Var
-effectVars = undefined
+effectTyVars :: Effect -> Set TyVar
+effectTyVars = undefined
 
 storeEffects :: Effect -> Set StoreEffect
 storeEffects = undefined
@@ -70,29 +77,34 @@ storeRegion :: StoreEffect -> Region
 storeRegion (InitEff r _) = r
 storeRegion (ReadEff r)   = r
 storeRegion (WriteEff r)  = r
-storeRegion __other__      = error "storeRegion: not a store effect"
+storeRegion __other__     = error "storeRegion: not a store effect"
 
--- * Typing Environment
+-------------------------------------------------
+-- * Expressions
 
-data Env = Env (Map Var Sig)
+type Var = String
 
--- * Free Variables
+data Exp = Var !Var
+         | Lam !Var !Exp
+         | Let !Var !Exp !Exp
+         | App !Exp !Exp
 
-fvRegion :: Region -> Set Var
+-------------------------------------------------
+-- * Free TyVariables
+
+fvRegion :: Region -> Set TyVar
 fvRegion = undefined
 
-fvEffect :: Effect -> Set Var
+fvEffect :: Effect -> Set TyVar
 fvEffect = undefined
 
-fvType :: Type -> Set Var
+fvType :: Type -> Set TyVar
 fvType = undefined
 
-fvSig :: Sig -> Set Var
+fvSig :: Sig -> Set TyVar
 fvSig = undefined
 
-fvEnv :: Env -> Set Var
-fvEnv = undefined
-
+-------------------------------------------------
 -- * Region Constants
 
 frEffect :: Effect -> Set Region
@@ -100,26 +112,3 @@ frEffect = undefined
 
 frType :: Type -> Set Region
 frType = undefined
-
-frEnv :: Env -> Set Region
-frEnv = undefined
-
--- * Type Generalization
-
-gen :: Effect -> Env -> Type -> Sig
-gen oEff env ty = ForallTy vars ty
-  where vars = toList $ fvType ty Set.\\ (fvEnv env `Set.union` fvEffect oEff)
-
--- * Observable Effects
-
-observe :: Env -> Type -> Effect -> Set Effect
-observe env ty eff = Set.fromList $
-     [ VarEff x | x <- toList $ effectVars eff
-                , x `Set.member` observableEffectVars
-                ]
-  ++ [ se | se <- toList $ storeEffects eff
-          , storeRegion se `Set.member` observableRegions
-          ]
-  where observableEffectVars = Set.filter isEffectVar $
-                                       fvEnv env `Set.union` fvType ty
-        observableRegions    = frEnv env `Set.union` frType ty

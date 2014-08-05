@@ -25,7 +25,7 @@ unify (FunTy a1    (VarEff x1) b1)
         theta  = theta1 ++. theta2
 unify _ _ = undefined
 
-unifyVar :: Var -> Type -> Subst
+unifyVar :: TyVar -> Type -> Subst
 unifyVar a ty
   | a `Set.member` fvType ty = error "unifyVar: occurs check"
   | otherwise                = Subst.var2type a ty

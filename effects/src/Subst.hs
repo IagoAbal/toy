@@ -10,20 +10,27 @@ id = undefined
 
 infixl 7 ++.
 (++.) :: Subst -> Subst -> Subst
-s1 ++. s2 = undefined
+_ ++. _ = undefined
 
 infixr 9 $.
 ($.) :: Subst -> Type -> Type
-s $. a = undefined
+_ $. _ = undefined
 
-var2region :: Var -> Region -> Subst
+infixr 9 $:
+($:) :: Subst -> Effect -> Effect
+_ $: _ = undefined
+
+var2region :: TyVar -> Region -> Subst
 var2region = undefined
 
-var2effect :: Var -> Effect -> Subst
+var2effect :: TyVar -> Effect -> Subst
 var2effect = undefined
 
-var2type :: Var -> Type -> Subst
-var2type a ty = undefined
+var2type :: TyVar -> Type -> Subst
+var2type = undefined
+
+fromList :: [(TyVar,Type)] -> Subst
+fromList = undefined
 
 substType :: Subst -> Type -> Type
 substType = undefined
