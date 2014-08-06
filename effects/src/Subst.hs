@@ -37,12 +37,19 @@ infixl 7 ++.
 (Subst r1 e1 t1) ++. (Subst r2 e2 t2) =
   Subst (Map.union r1 r2) (Map.union e1 e2) (Map.union t1 t2)
 
+(\\) :: Subst -> [TyVar] -> Subst
+(Subst rr ee tt) \\ vs = Subst (deleteVars rr) (deleteVars ee) (deleteVars tt)
+  where deleteVars = Map.filterWithKey (\k _ -> k `notElem` vs)
+
 -------------------------------------------------
 -- * Perform Substitution
 
 infixr 9 $.
 class SubstTarget a where
   ($.) :: Subst -> a -> a
+
+instance SubstTarget a => SubstTarget [a] where
+  u $. xs = map (u $.) xs
 
 instance SubstTarget Region where
   _ $. p@(Reg _) = p

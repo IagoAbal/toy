@@ -33,8 +33,10 @@ data Kind = RegKind
   deriving (Eq,Ord)
 
 isEffectVar :: TyVar -> Bool
-isEffectVar (TyVar EffKind _) = True
-isEffectVar __other__         = False
+isEffectVar = (== EffKind) . tvKind
+
+isRegionVar :: TyVar -> Bool
+isRegionVar = (== RegKind) . tvKind
 
 -- ** Regions
 
@@ -63,13 +65,21 @@ data Effect = EmptyEff
                 -- ^ Effect union
   deriving (Eq,Ord)
 
+sumEff :: [Effect] -> Effect
+sumEff = foldr (:+) EmptyEff
+
 type StoreEffect = Effect
 
-effectTyVars :: Effect -> Set TyVar
-effectTyVars = undefined
+effectVars :: Effect -> Set TyVar
+effectVars =  Set.filter isEffectVar . fv
 
 storeEffects :: Effect -> Set StoreEffect
-storeEffects = undefined
+storeEffects   EmptyEff      = Set.empty
+storeEffects   (VarEff _)    = Set.empty
+storeEffects s@(InitEff _ _) = Set.singleton s
+storeEffects s@(ReadEff _)   = Set.singleton s
+storeEffects s@(WriteEff _)  = Set.singleton s
+storeEffects   (s1 :+ s2)    = storeEffects s1 `Set.union` storeEffects s2
 
 storeRegion :: StoreEffect -> Region
 storeRegion (InitEff r _) = r
@@ -92,6 +102,9 @@ data Exp = Var !Var
 
 class FV a where
   fv :: a -> Set TyVar
+
+instance FV a => FV [a] where
+  fv = Set.unions . map fv
 
 instance FV Region where
   fv (Reg _)    = Set.empty
@@ -119,6 +132,9 @@ instance FV Sig where
 
 class FR a where
   fr :: a -> Set Region
+
+instance FR a => FR [a] where
+  fr = Set.unions . map fr
 
 instance FR Effect where
   fr EmptyEff      = Set.empty
