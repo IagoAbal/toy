@@ -7,31 +7,30 @@ import           Data.Map.Strict ( Map )
 import qualified Data.Map as Map
 
 import Syntax
-import Unique ( Uniq )
 
 -------------------------------------------------
 -- * Substitutions
 
 data Subst = Subst {
-    regMap :: Map Uniq Region
-  , effMap :: Map Uniq Effect
-  , typMap :: Map Uniq Type
+    regMap :: Map TyVar Region
+  , effMap :: Map TyVar Effect
+  , typMap :: Map TyVar Type
   }
 
 id :: Subst
 id = Subst Map.empty Map.empty Map.empty
 
 var2region :: TyVar -> Region -> Subst
-var2region y p = Subst (Map.singleton (tvUniq y) p) Map.empty Map.empty
+var2region y p = Subst (Map.singleton y p) Map.empty Map.empty
 
 var2effect :: TyVar -> Effect -> Subst
-var2effect f s = Subst Map.empty (Map.singleton (tvUniq f) s) Map.empty
+var2effect f s = Subst Map.empty (Map.singleton f s) Map.empty
 
 var2type :: TyVar -> Type -> Subst
 var2type a t = fromList [(a,t)]
 
 fromList :: [(TyVar,Type)] -> Subst
-fromList = Subst Map.empty Map.empty . Map.fromList . map (first tvUniq)
+fromList = Subst Map.empty Map.empty . Map.fromList
 
 infixl 7 ++.
 (++.) :: Subst -> Subst -> Subst
@@ -48,7 +47,7 @@ class SubstTarget a where
 instance SubstTarget Region where
   _ $. p@(Reg _) = p
   u $. p@(VarReg y)
-    | Just p' <- Map.lookup (tvUniq y) (regMap u)
+    | Just p' <- Map.lookup y (regMap u)
     = p'
     | otherwise
     = p
@@ -56,7 +55,7 @@ instance SubstTarget Region where
 instance SubstTarget Effect where
   _ $. s@EmptyEff = s
   u $. s@(VarEff f)
-    | Just s' <- Map.lookup (tvUniq f) (effMap u)
+    | Just s' <- Map.lookup f (effMap u)
     = s'
     | otherwise
     = s
@@ -68,7 +67,7 @@ instance SubstTarget Effect where
 instance SubstTarget Type where
   _ $. UnitTy = UnitTy
   u $. t@(VarTy a)
-    | Just t' <- Map.lookup (tvUniq a) (typMap u)
+    | Just t' <- Map.lookup a (typMap u)
     = t'
     | otherwise
     = t
