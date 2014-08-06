@@ -2,7 +2,6 @@
 -- | One-shot subsitution for type variables
 module Subst where
 
-import           Control.Arrow ( first )
 import           Data.Map.Strict ( Map )
 import qualified Data.Map as Map
 

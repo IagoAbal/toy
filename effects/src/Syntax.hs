@@ -1,7 +1,10 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Syntax where
 
 import           Data.Set ( Set )
 import qualified Data.Set as Set
+import           Data.String ( IsString(..) )
 
 import Unique ( Uniq )
 
@@ -18,7 +21,7 @@ instance Show Type where
   show UnitTy          = "unit"
   show (VarTy v)       = show v
   show (RefTy p t)     = "ref(" ++ show p ++ ',' : show t ++  ")"
-  show (FunTy t1 s t2) = show t1 ++ "-{" ++ show s ++ "}->" ++ show t2
+  show (FunTy t1 s t2) = show t1 ++ " -{" ++ show s ++ "}-> " ++ show t2
 
 data Sig = ForallTy !TyVars !Type
 
@@ -68,7 +71,7 @@ data Region = Reg !RegionId
   deriving (Eq,Ord)
 
 instance Show Region where
-  show (Reg rid)  = '\'' : show rid
+  show (Reg rid)  = "'R" ++ show rid
   show (VarReg y) = show y
 
 -- ** Effects
@@ -95,8 +98,13 @@ instance Show Effect where
   show (WriteEff p)  = "W(" ++ show p ++ ")"
   show (s1 :+ s2)    = show s1 ++ " U " ++ show s2
 
+(+:) :: Effect -> Effect -> Effect
+EmptyEff +: s2       = s2
+s1       +: EmptyEff = s1
+s1       +: s2       = s1 :+ s2
+
 sumEff :: [Effect] -> Effect
-sumEff = foldr (:+) EmptyEff
+sumEff = foldr (+:) EmptyEff
 
 type StoreEffect = Effect
 
@@ -127,6 +135,9 @@ data Exp = Var !Var
          | Let !Var !Exp !Exp
          | App !Exp !Exp
   deriving Show
+
+instance IsString Exp where
+  fromString = Var
 
 -------------------------------------------------
 -- * Free TyVariables

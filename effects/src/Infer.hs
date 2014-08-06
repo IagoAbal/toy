@@ -21,9 +21,44 @@ import qualified Unique as Uniq
 -- * Type Inferece
 
 ti :: Exp -> CSig
-ti e = cgen k ef env ty
-  where env = newEnv
-        (ty,ef,k) = Uniq.evalUnique (infer env e) Uniq.newSupply
+ti e = cgen k ef tiEnv ty
+  where (ty,ef,k) = Uniq.evalUnique (infer tiEnv e) tiSupply
+        tiSupply = Uniq.mkSupply 10
+        tiEnv = Env $ Map.fromList
+                  [ ("new",new_sig)
+                  , ("get",get_sig)
+                  , ("set",set_sig)
+                  ]
+          where new_sig = CForallTy [a,y,f]
+                                    (FunTy t s (RefTy p t))
+                                    [f :>= InitEff p t]
+                  where a = TyVar TypKind 0
+                        t = VarTy a
+                        y = TyVar RegKind 1
+                        p = VarReg y
+                        f = TyVar EffKind 2
+                        s = VarEff f
+                get_sig = CForallTy [a,y,f]
+                                    (FunTy (RefTy p t) s t)
+                                    [f :>= ReadEff p]
+                  where a = TyVar TypKind 3
+                        t = VarTy a
+                        y = TyVar RegKind 4
+                        p = VarReg y
+                        f = TyVar EffKind 5
+                        s = VarEff f
+                set_sig = CForallTy [a,y,f,f']
+                                    (FunTy (RefTy p t) s
+                                        (FunTy t s' UnitTy))
+                                    [f' :>= WriteEff p]
+                  where a = TyVar TypKind 6
+                        t = VarTy a
+                        y = TyVar RegKind 7
+                        p = VarReg y
+                        f = TyVar EffKind 8
+                        s = VarEff f
+                        f' = TyVar EffKind 9
+                        s' = VarEff f'
 
 infer :: Env -> Exp -> TI ({-Subst,-}Type,Effect,Constraints)
 infer env e = do
@@ -48,7 +83,7 @@ infer' env (Let x e e') = do
   let env1 = theta$.env
       env' = extendEnv x (cgen k ef env1 ty) env1
   (theta',ty',ef',k') <- infer' env' e'
-  return (theta'++.theta,ty',(theta'$.ef) :+ ef',(theta'$.k) ++ k')
+  return (theta'++.theta,ty',(theta'$.ef) +: ef',(theta'$.k) ++ k')
 infer' env (App e e') = do
   (theta,ty,ef,k) <- infer' env e
   (theta',ty',ef',k') <- infer' (theta$.env) e'
@@ -57,7 +92,7 @@ infer' env (App e e') = do
   let theta'' = (theta'$.ty) `unify` FunTy ty' ee a
       theta1  = theta''++.theta'++.theta
       ty1     = theta''$.a
-      ef1     = theta''$.((theta'$.ef) :+ ef' :+ ee)
+      ef1     = theta''$.((theta'$.ef) +: ef' +: ee)
       k1      = theta''$.(theta'$.k ++ k')
   return (theta1,ty1,ef1,k1)
 
@@ -82,9 +117,6 @@ freshVarEff = VarEff <$> freshVar EffKind
 -- * Typing Environment
 
 data Env = Env { unEnv :: !(Map Var CSig) }
-
-newEnv :: Env
-newEnv = Env Map.empty
 
 lookupVar :: Env -> Var -> Maybe CSig
 lookupVar (Env m) v = Map.lookup v m
@@ -140,11 +172,14 @@ instance FR Constraint where
   fr (_ :>= s) = fr s
 
 instance SubstTarget Constraint where
-  u $. (f :>= s) = f :>= (u $. s)
+  u $. (f :>= s) = f' :>= (u $. s)
+    where f' = case u $. VarEff f of
+                    VarEff x  -> x
+                    __other__ -> undefined
 
 k2subst :: Constraints -> Subst
 k2subst = foldr (++.) Subst.id . map mk
-  where mk (f :>= s) = Subst.var2effect f (VarEff f :+ s)
+  where mk (f :>= s) = Subst.var2effect f (VarEff f +: s)
 
 infixr 9 $$.
 ($$.) :: SubstTarget a => Constraints -> a -> a
