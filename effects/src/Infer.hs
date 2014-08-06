@@ -20,6 +20,11 @@ import qualified Unique as Uniq
 -------------------------------------------------
 -- * Type Inferece
 
+ti :: Exp -> CSig
+ti e = cgen k ef env ty
+  where env = newEnv
+        (ty,ef,k) = Uniq.evalUnique (infer env e) Uniq.newSupply
+
 infer :: Env -> Exp -> TI ({-Subst,-}Type,Effect,Constraints)
 infer env e = do
   (theta,ty,ef,k) <- infer' env e
@@ -77,6 +82,9 @@ freshVarEff = VarEff <$> freshVar EffKind
 -- * Typing Environment
 
 data Env = Env { unEnv :: !(Map Var CSig) }
+
+newEnv :: Env
+newEnv = Env Map.empty
 
 lookupVar :: Env -> Var -> Maybe CSig
 lookupVar (Env m) v = Map.lookup v m
