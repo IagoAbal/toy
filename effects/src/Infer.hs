@@ -122,6 +122,9 @@ data Constraint = !TyVar :>= !Effect
 
 type Constraints = [Constraint]
 
+instance Show Constraint where
+  show (f :>= s) = show f ++ " >= " ++ show s
+
 instance FV Constraint where
   fv (f :>= s) = Set.insert f $ fv s
 
@@ -142,6 +145,11 @@ k $$. x = k2subst k $. x
 -- * Signatures
 
 data CSig = CForallTy !TyVars !Type !Constraints
+
+instance Show CSig where
+  show (CForallTy vs t k) = "forall " ++ vs_str ++ ". " ++
+                                    show t ++ " & " ++ show k
+    where vs_str = unwords (map show vs)
 
 instance FV CSig where
   fv (CForallTy vs t cs) = (fv t `Set.union` fv cs) Set.\\ Set.fromList vs

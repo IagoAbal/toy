@@ -14,7 +14,17 @@ data Type = UnitTy
            | FunTy !Type !Effect !Type
   deriving (Eq,Ord)
 
+instance Show Type where
+  show UnitTy          = "unit"
+  show (VarTy v)       = show v
+  show (RefTy p t)     = "ref(" ++ show p ++ ',' : show t ++  ")"
+  show (FunTy t1 s t2) = show t1 ++ "-{" ++ show s ++ "}->" ++ show t2
+
 data Sig = ForallTy !TyVars !Type
+
+instance Show Sig where
+  show (ForallTy vs t) = "forall " ++ vs_str ++ ". " ++ show t
+    where vs_str = unwords (map show vs)
 
 -- ** Variables
 
@@ -26,6 +36,11 @@ data TyVar =
   ,  tvUniq :: !Uniq
   }
   deriving (Eq,Ord)
+
+instance Show TyVar where
+  show (TyVar RegKind i) = "'r" ++ show i
+  show (TyVar EffKind i) = "'e" ++ show i
+  show (TyVar TypKind i) = "'t" ++ show i
 
 data Kind = RegKind
           | EffKind
@@ -43,11 +58,18 @@ isRegionVar = (== RegKind) . tvKind
 data RegionId = RID !Int
   deriving (Eq,Ord)
 
+instance Show RegionId where
+  show (RID i) = show i
+
 data Region = Reg !RegionId
                 -- ^ Region constants
              | VarReg !TyVar
                 -- ^ Region variables
   deriving (Eq,Ord)
+
+instance Show Region where
+  show (Reg rid)  = '\'' : show rid
+  show (VarReg y) = show y
 
 -- ** Effects
 
@@ -64,6 +86,14 @@ data Effect = EmptyEff
              | !Effect :+ !Effect
                 -- ^ Effect union
   deriving (Eq,Ord)
+
+instance Show Effect where
+  show EmptyEff      = "0"
+  show (VarEff f)    = show f
+  show (InitEff p s) = "I(" ++ show p ++ ',' : show s ++ ")"
+  show (ReadEff p)   = "R(" ++ show p ++ ")"
+  show (WriteEff p)  = "W(" ++ show p ++ ")"
+  show (s1 :+ s2)    = show s1 ++ " U " ++ show s2
 
 sumEff :: [Effect] -> Effect
 sumEff = foldr (:+) EmptyEff
@@ -96,6 +126,7 @@ data Exp = Var !Var
          | Lam !Var !Exp
          | Let !Var !Exp !Exp
          | App !Exp !Exp
+  deriving Show
 
 -------------------------------------------------
 -- * Free TyVariables
