@@ -138,6 +138,7 @@ data Exp = Unit
          | Lam !Var !Exp
          | Let !Var !Exp !Exp
          | App !Exp !Exp
+         | If !Exp !Exp
   deriving Show
 
 instance IsString Exp where
