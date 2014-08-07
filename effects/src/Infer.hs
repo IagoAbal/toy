@@ -100,7 +100,7 @@ infer' env ee@(Lam x e) = do
   (u,ty,ef,k) <- infer' (extendEnv x (CForallTy [] a []) env) e
   let a' = u $. a
       k' = f :>= ef : k
-  traceLAM env ee a' (ty,ef,k) (FunTy a' s ty) k'
+  traceLAM u env ee a' (ty,ef,k) (FunTy a' s ty) k'
   return (u,FunTy a' s ty,EmptyEff,k')
 
 infer' env (Let x e e') = do
@@ -120,7 +120,7 @@ infer' env ee@(App e e') = do
       ty1 = u'' $. a
       ef1 = u'' $. ((u' $. s) +: s' +: s1)
       k1  = u'' $. (u' $. k ++ k')
-  traceAPP env ee (ty,s,k) (ty',s',k') (ty1,ef1) k1
+  traceAPP u1 env ee (ty,s,k) (ty',s',k') (ty1,ef1) k1
   return (u1,ty1,ef1,k1)
 
 infer' env (If e1 e2) = do
@@ -311,9 +311,9 @@ traceVAR env x ty bs ty' k' = flip trace (return ()) $
     hasTy x (show ty') `nl`
     show k'
 
-traceLAM :: Env -> Exp -> Type -> (Type,Effect,Constraints)
+traceLAM :: Subst -> Env -> Exp -> Type -> (Type,Effect,Constraints)
             -> Type -> Constraints -> TI ()
-traceLAM env e@(Lam x body) a b ty k'  = flip trace (return ()) $
+traceLAM u env e@(Lam x body) a b ty k'  = flip trace (return ()) $
     "" `nl`
     brackets "LAM" `nl`
     "E = " ++ show env `nl`
@@ -321,14 +321,15 @@ traceLAM env e@(Lam x body) a b ty k'  = flip trace (return ()) $
     hasTy (show body) (show b) `nl`
     "-------------------------------------------" `nl`
     hasTy (show e) (show ty) `nl`
-    show k'
-traceLAM _ _ _ _ _ _ = error "traceLAM: not a lambda"
+    show k' `nl`
+    show u
+traceLAM _ _ _ _ _ _ _ = error "traceLAM: not a lambda"
 
 -- traceLET
 
-traceAPP :: Env -> Exp -> (Type,Effect,Constraints) -> (Type,Effect,Constraints)
+traceAPP :: Subst -> Env -> Exp -> (Type,Effect,Constraints) -> (Type,Effect,Constraints)
             -> (Type,Effect) -> Constraints -> TI ()
-traceAPP env e@(App e1 e2) t1 t2 ty k  = flip trace (return ()) $
+traceAPP u env e@(App e1 e2) t1 t2 ty k  = flip trace (return ()) $
     "" `nl`
     brackets "APP" `nl`
     "E = " ++ show env `nl`
@@ -336,6 +337,7 @@ traceAPP env e@(App e1 e2) t1 t2 ty k  = flip trace (return ()) $
     hasTy (show e2) (show t2) `nl`
     "-------------------------------------------" `nl`
     hasTy (show e) (show ty) `nl`
-    show k
-traceAPP _ _ _ _ _ _ = error "traceAPP: not an application"
+    show k `nl`
+    show u
+traceAPP _ _ _ _ _ _ _ = error "traceAPP: not an application"
 
