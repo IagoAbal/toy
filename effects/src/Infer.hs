@@ -71,8 +71,8 @@ infer' env (Var x)
 infer' _env Unit = return (Subst.id,UnitTy,EmptyEff,[])
   | Just (CForallTy as ty k) <- lookupVar env x
   = do bs <- freshVars as
-       let u = Subst.fromList [ (a,VarTy b) | a <- as | b <- bs ]
        return (Subst.id,u$.ty,EmptyEff,u$.k)
+       let u   = Subst.fromList $ zip as bs
   | otherwise
   = error "infer': variable not found"
 infer' env (Lam x e) = do

@@ -19,6 +19,12 @@ data Subst = Subst {
 id :: Subst
 id = Subst Map.empty Map.empty Map.empty
 
+fromList :: [(TyVar,TyVar)] -> Subst
+fromList ps = Subst rr ee tt
+  where rr = Map.fromList [ (v,VarReg w) | (v,w) <- ps, isRegionVar v ]
+        ee = Map.fromList [ (v,VarEff w) | (v,w) <- ps, isEffectVar v ]
+        tt = Map.fromList [ (v,VarTy w)  | (v,w) <- ps, isTypeVar v ]
+
 var2region :: TyVar -> Region -> Subst
 var2region y p = Subst (Map.singleton y p) Map.empty Map.empty
 
@@ -26,10 +32,7 @@ var2effect :: TyVar -> Effect -> Subst
 var2effect f s = Subst Map.empty (Map.singleton f s) Map.empty
 
 var2type :: TyVar -> Type -> Subst
-var2type a t = fromList [(a,t)]
-
-fromList :: [(TyVar,Type)] -> Subst
-fromList = Subst Map.empty Map.empty . Map.fromList
+var2type a t = Subst Map.empty Map.empty (Map.singleton a t)
 
 infixl 7 ++.
 (++.) :: Subst -> Subst -> Subst

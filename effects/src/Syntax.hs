@@ -56,6 +56,9 @@ isEffectVar = (== EffKind) . tvKind
 isRegionVar :: TyVar -> Bool
 isRegionVar = (== RegKind) . tvKind
 
+isTypeVar :: TyVar -> Bool
+isTypeVar = (== TypKind) . tvKind
+
 -- ** Regions
 
 data RegionId = RID !Int
