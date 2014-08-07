@@ -20,7 +20,7 @@ import qualified Unique as Uniq
 import Debug.Trace
 
 -------------------------------------------------
--- * Type Inferece
+-- * Facade
 
 ti :: Exp -> (Type,Effect,Constraints)
 ti e = (ty,ef,k) -- cgen k ef tiEnv ty
@@ -62,6 +62,9 @@ ti e = (ty,ef,k) -- cgen k ef tiEnv ty
                         f' = TyVar EffKind 9
                         s' = VarEff f'
 
+-------------------------------------------------
+-- * Type Inferece
+
 infer :: Env -> Exp -> TI (Type,Effect,Constraints)
 infer env e = do
   (u,ty,ef,k) <- infer' env e
@@ -81,20 +84,12 @@ infer' :: Env -> Exp -> TI (Subst,Type,Effect,Constraints)
 infer' _env Unit = return (Subst.id,UnitTy,EmptyEff,[])
 
 infer' env ee@(Var x)
-  | Just (CForallTy as ty k) <- lookupVar env x
+  | Just sig@(CForallTy as ty k) <- lookupVar env x
   = do bs <- freshVars as
        let u   = Subst.fromList $ zip as bs
            ty' = u $. ty
            k'  = u $. k
-       trace ("\n-----------" ++
-              "\nVAR " ++ show ee ++
-              "\n  as  = " ++ show as ++
-              "\n  bs  = " ++ show bs ++
-              "\n  ty  = " ++ show ty ++
-              "\n  ty' = " ++ show ty' ++
-              "\n  k   = " ++ show k ++
-              "\n  k'  = " ++ show k'
-          ) $ return ()
+       traceVAR env x sig bs ty' k'
        return (Subst.id,ty',EmptyEff,k')
   | otherwise
   = error "infer': variable not found"
@@ -104,15 +99,9 @@ infer' env ee@(Lam x e) = do
   s@(VarEff f) <- freshVarEff
   (u,ty,ef,k) <- infer' (extendEnv x (CForallTy [] a []) env) e
   let a' = u $. a
-  trace ("\n-----------" ++
-         "\nLAM " ++ show ee ++
-         "\n  a  = " ++ show a ++
-         "\n  s  = " ++ show s ++
-         "\n  ty  = " ++ show ty ++
-         "\n  ef = " ++ show ef ++
-         "\n  k   = " ++ show k
-     ) $ return ()
-  return (u,FunTy a' s ty,EmptyEff,f :>= ef : k)
+      k' = f :>= ef : k
+  traceLAM env ee a' (ty,ef,k) (FunTy a' s ty) k'
+  return (u,FunTy a' s ty,EmptyEff,k')
 
 infer' env (Let x e e') = do
   (theta,ty,ef,k) <- infer' env e
@@ -131,20 +120,7 @@ infer' env ee@(App e e') = do
       ty1 = u'' $. a
       ef1 = u'' $. ((u' $. s) +: s' +: s1)
       k1  = u'' $. (u' $. k ++ k')
-  trace ("\n-----------" ++
-         "\nAPP " ++ show ee ++
-         "\n  ty  = " ++ show ty ++
-         "\n  s  = " ++ show s ++
-         "\n  k  = " ++ show k ++
-         "\n  ty'  = " ++ show ty' ++
-         "\n  s' = " ++ show s' ++
-         "\n  k'  = " ++ show k' ++
-         "\n  a   = " ++ show a ++
-         "\n  s1  = " ++ show s1 ++
-         "\n  ty1  = " ++ show ty1 ++
-         "\n  ef1   = " ++ show ef1 ++
-         "\n  k1   = " ++ show k1
-     ) $ return ()
+  traceAPP env ee (ty,s,k) (ty',s',k') (ty1,ef1) k1
   return (u1,ty1,ef1,k1)
 
 infer' env (If e1 e2) = do
@@ -188,7 +164,11 @@ freshVarEff = VarEff <$> freshVar EffKind
 -- * Typing Environment
 
 data Env = Env { unEnv :: !(Map Var CSig) }
-  deriving Show
+
+instance Show Env where
+  show (Env m) = show $ Map.toList m'
+    where m' = Map.filterWithKey (\k _ -> k `notElem` ["new","get","set"]) m
+
 
 lookupVar :: Env -> Var -> Maybe CSig
 lookupVar (Env m) v = Map.lookup v m
@@ -305,3 +285,57 @@ cgen k ef env ty = CForallTy vars ty k
 
 cobserve :: Constraints -> Env -> Type -> Effect -> Effect
 cobserve k env ty ef = observe (k $$. env) (k $$. ty) (k $$. ef)
+
+-------------------------------------------------
+-- * TI Tracing
+
+brackets str = '[' : str ++ "]"
+
+infixr 6 `cat`
+s1 `cat` s2 = s1 ++ " " ++ s2
+
+infixr 5 `nl`
+s1 `nl` s2 = s1 ++ '\n' : s2
+
+hasTy :: String -> String -> String
+hasTy x ty = "E |- " ++ x `cat` ":" `cat` ty
+
+traceVAR :: Env -> Var -> CSig -> TyVars -> Type -> Constraints -> TI ()
+traceVAR env x ty bs ty' k' = flip trace (return ()) $
+    "" `nl`
+    brackets "VAR" `nl`
+    "E = " ++ show env `nl`
+    hasTy x (show ty) `nl`
+    (show bs) `cat` "fresh" `nl`
+    "-------------------------------------------" `nl`
+    hasTy x (show ty') `nl`
+    show k'
+
+traceLAM :: Env -> Exp -> Type -> (Type,Effect,Constraints)
+            -> Type -> Constraints -> TI ()
+traceLAM env e@(Lam x body) a b ty k'  = flip trace (return ()) $
+    "" `nl`
+    brackets "LAM" `nl`
+    "E = " ++ show env `nl`
+    hasTy x (show a) `nl`
+    hasTy (show body) (show b) `nl`
+    "-------------------------------------------" `nl`
+    hasTy (show e) (show ty) `nl`
+    show k'
+traceLAM _ _ _ _ _ _ = error "traceLAM: not a lambda"
+
+-- traceLET
+
+traceAPP :: Env -> Exp -> (Type,Effect,Constraints) -> (Type,Effect,Constraints)
+            -> (Type,Effect) -> Constraints -> TI ()
+traceAPP env e@(App e1 e2) t1 t2 ty k  = flip trace (return ()) $
+    "" `nl`
+    brackets "APP" `nl`
+    "E = " ++ show env `nl`
+    hasTy (show e1) (show t1) `nl`
+    hasTy (show e2) (show t2) `nl`
+    "-------------------------------------------" `nl`
+    hasTy (show e) (show ty) `nl`
+    show k
+traceAPP _ _ _ _ _ _ = error "traceAPP: not an application"
+
