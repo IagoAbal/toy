@@ -21,7 +21,8 @@ instance Show Type where
   show UnitTy          = "unit"
   show (VarTy v)       = show v
   show (RefTy p t)     = "ref(" ++ show p ++ ',' : show t ++  ")"
-  show (FunTy t1 s t2) = show t1 ++ " -{" ++ show s ++ "}-> " ++ show t2
+  show (FunTy t1 s t2) =
+    '(' : show t1 ++ " -{" ++ show s ++ "}-> " ++ show t2 ++ ")"
 
 data Sig = ForallTy !TyVars !Type
 
