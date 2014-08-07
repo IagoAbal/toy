@@ -67,6 +67,8 @@ infer env e = do
 
 infer' :: Env -> Exp -> TI (Subst,Type,Effect,Constraints)
 infer' env (Var x)
+
+infer' _env Unit = return (Subst.id,UnitTy,EmptyEff,[])
   | Just (CForallTy as ty k) <- lookupVar env x
   = do bs <- freshVars as
        let u = Subst.fromList [ (a,VarTy b) | a <- as | b <- bs ]

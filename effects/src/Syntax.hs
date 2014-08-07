@@ -130,7 +130,8 @@ storeRegion __other__     = error "storeRegion: not a store effect"
 
 type Var = String
 
-data Exp = Var !Var
+data Exp = Unit
+         | Var !Var
          | Lam !Var !Exp
          | Let !Var !Exp !Exp
          | App !Exp !Exp
