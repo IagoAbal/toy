@@ -158,6 +158,15 @@ infer' env (If e1 e2) = do
       u = u0 ++. u1 ++. u2
   return (u,ty,ef,k)
 
+infer' env (e1 :- e2) = do
+  (u1',ty1,s1,k1) <- infer' env e1
+  let u1 = u1' ++. ty1 `unify` UnitTy
+  (u2,ty2,s2,k2) <- infer' (u1 $. env) e2
+  let ef = (u2 $. s1) +: s2
+      k = u2 $. k1 ++ k2
+      u = u1 ++. u2
+  return (u,ty2,ef,k)
+
 -------------------------------------------------
 -- * Type Inferece (TI) Monad
 
