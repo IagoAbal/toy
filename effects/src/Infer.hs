@@ -83,7 +83,7 @@ infer' :: Env -> Exp -> TI (Subst,Type,Effect,Constraints)
 
 infer' _env Unit = return (Subst.id,UnitTy,EmptyEff,[])
 
-infer' env ee@(Var x)
+infer' env (Var x)
   | Just sig@(CForallTy as ty k) <- lookupVar env x
   = do bs <- freshVars as
        let u   = Subst.fromList $ zip as bs
@@ -290,12 +290,15 @@ cobserve k env ty ef = observe (k $$. env) (k $$. ty) (k $$. ef)
 -------------------------------------------------
 -- * TI Tracing
 
+brackets :: String -> String
 brackets str = '[' : str ++ "]"
 
 infixr 6 `cat`
+cat :: String -> String -> String
 s1 `cat` s2 = s1 ++ " " ++ s2
 
 infixr 5 `nl`
+nl :: String -> String -> String
 s1 `nl` s2 = s1 ++ '\n' : s2
 
 hasTy :: String -> String -> String
