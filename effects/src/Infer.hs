@@ -17,11 +17,13 @@ import           Unify ( unify )
 import           Unique ( Unique )
 import qualified Unique as Uniq
 
+import Debug.Trace
+
 -------------------------------------------------
 -- * Type Inferece
 
-ti :: Exp -> CSig
-ti e = cgen k ef tiEnv ty
+ti :: Exp -> (Type,Effect,Constraints)
+ti e = (ty,ef,k) -- cgen k ef tiEnv ty
   where (ty,ef,k) = Uniq.evalUnique (infer tiEnv e) tiSupply
         tiSupply = Uniq.mkSupply 10
         tiEnv = Env $ Map.fromList
@@ -60,43 +62,90 @@ ti e = cgen k ef tiEnv ty
                         f' = TyVar EffKind 9
                         s' = VarEff f'
 
-infer :: Env -> Exp -> TI ({-Subst,-}Type,Effect,Constraints)
+infer :: Env -> Exp -> TI (Type,Effect,Constraints)
 infer env e = do
-  (theta,ty,ef,k) <- infer' env e
-  return ({-theta,-}ty,cobserve k (theta$.env) ty ef,k)
+  (u,ty,ef,k) <- infer' env e
+  let env' = u $. env
+      oEf = cobserve k env' ty ef
+  trace ("\n-----------" ++
+         "\nINFER " ++ show e ++
+         "\n  ty  = " ++ show ty ++
+         "\n  ef  = " ++ show ef ++
+         "\n  k = " ++ show k ++
+         "\n  oEf = " ++ show oEf
+     ) $ return ()
+  return (ty,oEf,k)
 
 infer' :: Env -> Exp -> TI (Subst,Type,Effect,Constraints)
-infer' env (Var x)
 
 infer' _env Unit = return (Subst.id,UnitTy,EmptyEff,[])
+
+infer' env ee@(Var x)
   | Just (CForallTy as ty k) <- lookupVar env x
   = do bs <- freshVars as
-       return (Subst.id,u$.ty,EmptyEff,u$.k)
        let u   = Subst.fromList $ zip as bs
+           ty' = u $. ty
+           k'  = u $. k
+       trace ("\n-----------" ++
+              "\nVAR " ++ show ee ++
+              "\n  as  = " ++ show as ++
+              "\n  bs  = " ++ show bs ++
+              "\n  ty  = " ++ show ty ++
+              "\n  ty' = " ++ show ty' ++
+              "\n  k   = " ++ show k ++
+              "\n  k'  = " ++ show k'
+          ) $ return ()
+       return (Subst.id,ty',EmptyEff,k')
   | otherwise
   = error "infer': variable not found"
-infer' env (Lam x e) = do
+
+infer' env ee@(Lam x e) = do
   a <- freshVarTy
-  l <- freshVar EffKind
-  (theta,ty,eff,k) <- infer' (extendEnv x (CForallTy [] a []) env) e
-  return (theta,FunTy (theta$.a) (VarEff l) ty,EmptyEff,l :>= eff : k)
+  s@(VarEff f) <- freshVarEff
+  (u,ty,ef,k) <- infer' (extendEnv x (CForallTy [] a []) env) e
+  let a' = u $. a
+  trace ("\n-----------" ++
+         "\nLAM " ++ show ee ++
+         "\n  a  = " ++ show a ++
+         "\n  s  = " ++ show s ++
+         "\n  ty  = " ++ show ty ++
+         "\n  ef = " ++ show ef ++
+         "\n  k   = " ++ show k
+     ) $ return ()
+  return (u,FunTy a' s ty,EmptyEff,f :>= ef : k)
+
 infer' env (Let x e e') = do
   (theta,ty,ef,k) <- infer' env e
   let env1 = theta$.env
       env' = extendEnv x (cgen k ef env1 ty) env1
   (theta',ty',ef',k') <- infer' env' e'
   return (theta'++.theta,ty',(theta'$.ef) +: ef',(theta'$.k) ++ k')
-infer' env (App e e') = do
-  (theta,ty,ef,k) <- infer' env e
-  (theta',ty',ef',k') <- infer' (theta$.env) e'
+
+infer' env ee@(App e e') = do
+  (u,ty,s,k) <- infer' env e
+  (u',ty',s',k') <- infer' (u $. env) e'
   a <- freshVarTy
-  ee <- freshVarEff
-  let theta'' = (theta'$.ty) `unify` FunTy ty' ee a
-      theta1  = theta''++.theta'++.theta
-      ty1     = theta''$.a
-      ef1     = theta''$.((theta'$.ef) +: ef' +: ee)
-      k1      = theta''$.(theta'$.k ++ k')
-  return (theta1,ty1,ef1,k1)
+  s1 <- freshVarEff
+  let u'' = (u' $. ty) `unify` FunTy ty' s1 a
+      u1  = u'' ++. u' ++. u
+      ty1 = u'' $. a
+      ef1 = u'' $. ((u' $. s) +: s' +: s1)
+      k1  = u'' $. (u' $. k ++ k')
+  trace ("\n-----------" ++
+         "\nAPP " ++ show ee ++
+         "\n  ty  = " ++ show ty ++
+         "\n  s  = " ++ show s ++
+         "\n  k  = " ++ show k ++
+         "\n  ty'  = " ++ show ty' ++
+         "\n  s' = " ++ show s' ++
+         "\n  k'  = " ++ show k' ++
+         "\n  a   = " ++ show a ++
+         "\n  s1  = " ++ show s1 ++
+         "\n  ty1  = " ++ show ty1 ++
+         "\n  ef1   = " ++ show ef1 ++
+         "\n  k1   = " ++ show k1
+     ) $ return ()
+  return (u1,ty1,ef1,k1)
 
 -------------------------------------------------
 -- * Type Inferece (TI) Monad
@@ -119,6 +168,7 @@ freshVarEff = VarEff <$> freshVar EffKind
 -- * Typing Environment
 
 data Env = Env { unEnv :: !(Map Var CSig) }
+  deriving Show
 
 lookupVar :: Env -> Var -> Maybe CSig
 lookupVar (Env m) v = Map.lookup v m
@@ -147,6 +197,14 @@ gen oEff env ty = ForallTy vars ty
 
 observe :: Env -> Type -> Effect -> Effect
 observe env ty eff = sumEff $
+  trace ("\n-----------" ++
+       "\nOBSERVE " ++
+       "\n  env  = " ++ show env ++
+       "\n  ty  = " ++ show ty ++
+       "\n  eff  = " ++ show eff ++
+       "\n  observableEffectVars = " ++ show observableEffectVars ++
+       "\n  observableRegions   = " ++ show observableRegions
+   ) $
      [ VarEff x | x <- toList $ effectVars eff
                 , x `Set.member` observableEffectVars
                 ]

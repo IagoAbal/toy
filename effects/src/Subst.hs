@@ -15,6 +15,7 @@ data Subst = Subst {
   , effMap :: Map TyVar Effect
   , typMap :: Map TyVar Type
   }
+  deriving Show
 
 id :: Subst
 id = Subst Map.empty Map.empty Map.empty
