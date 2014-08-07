@@ -123,7 +123,7 @@ infer' env ee@(App e e') = do
   traceAPP u1 env ee (ty,s,k) (ty',s',k') (ty1,ef1) k1
   return (u1,ty1,ef1,k1)
 
-infer' env (If e1 e2) = do
+infer' env ee@(If e1 e2) = do
   (u1,ty1,s1,k1) <- infer' env e1
   (u2,ty2,s2,k2) <- infer' (u1 $. env) e2
   let ty1' = u2 $. ty1
@@ -132,6 +132,7 @@ infer' env (If e1 e2) = do
       ef = u0 $. ((u2 $. s1) +: s2)
       k = u0 $. (u2 $. k1 ++ k2)
       u = u0 ++. u1 ++. u2
+  traceIF u env ee (ty1,s1,k1) (ty2,s2,k2) (ty,ef) k
   return (u,ty,ef,k)
 
 infer' env (e1 :- e2) = do
@@ -341,3 +342,16 @@ traceAPP u env e@(App e1 e2) t1 t2 ty k  = flip trace (return ()) $
     show u
 traceAPP _ _ _ _ _ _ _ = error "traceAPP: not an application"
 
+traceIF :: Subst -> Env -> Exp -> (Type,Effect,Constraints) -> (Type,Effect,Constraints)
+            -> (Type,Effect) -> Constraints -> TI ()
+traceIF u env e@(If e1 e2) t1 t2 ty k  = flip trace (return ()) $
+    "" `nl`
+    brackets "IF" `nl`
+    "E = " ++ show env `nl`
+    hasTy (show e1) (show t1) `nl`
+    hasTy (show e2) (show t2) `nl`
+    "-------------------------------------------" `nl`
+    hasTy (show e) (show ty) `nl`
+    show k `nl`
+    show u
+traceIF _ _ _ _ _ _ _ = error "traceIF: not an if-then-else"
