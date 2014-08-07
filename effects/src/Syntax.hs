@@ -11,7 +11,7 @@ import Unique ( Uniq )
 -------------------------------------------------
 -- * Types
 
-data Type = UnitTy
+data Type =  UnitTy
            | VarTy !TyVar
            | RefTy !Region !Type
            | FunTy !Type !Effect !Type

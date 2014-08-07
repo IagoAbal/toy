@@ -23,7 +23,7 @@ unify (FunTy a1    (VarEff x1) b1)
   where theta1 = Subst.var2effect x1 x2
         theta2 = theta1$.a1 `unify` theta1$.a2
         theta  = theta1 ++. theta2
-unify _ _ = undefined
+unify _ _ = error "cannot unify"
 
 unifyVar :: TyVar -> Type -> Subst
 unifyVar a ty

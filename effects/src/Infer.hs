@@ -246,7 +246,7 @@ instance SubstTarget Constraint where
   u $. (f :>= s) = f' :>= (u $. s)
     where f' = case u $. VarEff f of
                     VarEff x  -> x
-                    __other__ -> undefined
+                    __other__ -> error "cannot substitute constraint LHS"
 
 k2subst :: Constraints -> Subst
 k2subst = foldr (++.) Subst.id . map mk
