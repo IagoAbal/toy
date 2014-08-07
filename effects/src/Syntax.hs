@@ -41,8 +41,8 @@ data TyVar =
   deriving (Eq,Ord)
 
 instance Show TyVar where
-  show (TyVar RegKind i) = "'r" ++ show i
-  show (TyVar EffKind i) = "'e" ++ show i
+  show (TyVar RegKind i) = "%r" ++ show i
+  show (TyVar EffKind i) = "!e" ++ show i
   show (TyVar TypKind i) = "'t" ++ show i
 
 data Kind = RegKind
@@ -71,7 +71,7 @@ data Region = Reg !RegionId
   deriving (Eq,Ord)
 
 instance Show Region where
-  show (Reg rid)  = "'R" ++ show rid
+  show (Reg rid)  = "%R" ++ show rid
   show (VarReg y) = show y
 
 -- ** Effects
