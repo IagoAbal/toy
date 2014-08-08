@@ -70,13 +70,7 @@ infer env e = do
   (u,ty,ef,k) <- infer' env e
   let env' = u $. env
       oEf = cobserve k env' ty ef
-  trace ("\n-----------" ++
-         "\nINFER " ++ show e ++
-         "\n  ty  = " ++ show ty ++
-         "\n  ef  = " ++ show ef ++
-         "\n  k = " ++ show k ++
-         "\n  oEf = " ++ show oEf
-     ) $ return ()
+  traceINFER env' e ty ef k oEf
   return (ty,oEf,k)
 
 infer' :: Env -> Exp -> TI (Subst,Type,Effect,Constraints)
@@ -198,14 +192,6 @@ gen oEff env ty = ForallTy vars ty
 
 observe :: Env -> Type -> Effect -> Effect
 observe env ty eff = sumEff $
-  trace ("\n-----------" ++
-       "\nOBSERVE " ++
-       "\n  env  = " ++ show env ++
-       "\n  ty  = " ++ show ty ++
-       "\n  eff  = " ++ show eff ++
-       "\n  observableEffectVars = " ++ show observableEffectVars ++
-       "\n  observableRegions   = " ++ show observableRegions
-   ) $
      [ VarEff x | x <- toList $ effectVars eff
                 , x `Set.member` observableEffectVars
                 ]
@@ -303,6 +289,19 @@ s1 `nl` s2 = s1 ++ '\n' : s2
 
 hasTy :: String -> String -> String
 hasTy x ty = "E |- " ++ x `cat` ":" `cat` ty
+
+hasTyEf :: String -> String -> String -> String
+hasTyEf x ty ef = "E |- " ++ x `cat` ":" `cat` ty `cat` "&" `cat` ef
+
+traceINFER :: Env -> Exp -> Type -> Effect -> Constraints -> Effect -> TI ()
+traceINFER env e ty ef k oEf = flip trace (return ()) $
+    "" `nl`
+    brackets "INFER" `nl`
+    "E = " ++ show env `nl`
+    hasTyEf (show e) (show ty) (show ef) `nl`
+    "-------------------------------------------" `nl`
+    hasTyEf (show e) (show ty) (show oEf) `nl`
+    show k
 
 traceVAR :: Env -> Var -> CSig -> TyVars -> Type -> Constraints -> TI ()
 traceVAR env x ty bs ty' k' = flip trace (return ()) $
