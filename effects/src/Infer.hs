@@ -5,6 +5,7 @@ module Infer where
 import           Control.Applicative ( (<$>) )
 
 import           Data.Foldable ( toList )
+import qualified Data.List as List
 import           Data.Map.Strict ( Map )
 import qualified Data.Map as Map
 import           Data.Set ( Set )
@@ -206,6 +207,7 @@ observe env ty eff = sumEff $
 -- * Effect Constraints
 
 data Constraint = !TyVar :>= !Effect
+  deriving Eq
 
 type Constraints = [Constraint]
 
@@ -272,6 +274,18 @@ cgen k ef env ty = CForallTy vars ty k
 
 cobserve :: Constraints -> Env -> Type -> Effect -> Effect
 cobserve k env ty ef = observe (k $$. env) (k $$. ty) (k $$. ef)
+
+-------------------------------------------------
+-- * Well-Formed Constraint Sets
+
+wf :: Constraints -> Bool
+wf k = and [ wf_aux c k' | c <- k, let k' = List.delete c k ]
+
+wf1 :: Constraint -> Constraints -> Bool
+wf1 (f :>= s) k' = and
+  [  f `Set.notMember` fv t
+  | InitEff _ t <- toList $ storeEffects $ k' $$. s
+  ]
 
 -------------------------------------------------
 -- * TI Tracing
