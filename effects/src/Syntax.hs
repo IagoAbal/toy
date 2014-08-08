@@ -146,6 +146,15 @@ data Exp = Unit
 instance IsString Exp where
   fromString = Var
 
+new :: Exp -> Exp
+new = App "new"
+
+get :: Exp -> Exp
+get = App "get"
+
+set :: Exp -> Exp -> Exp
+set e1 e2 = App (App "set" e1) e2
+
 -------------------------------------------------
 -- * Free TyVariables
 
