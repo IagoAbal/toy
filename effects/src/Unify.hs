@@ -27,5 +27,7 @@ unify _ _ = error "cannot unify"
 
 unifyVar :: TyVar -> Type -> Subst
 unifyVar a ty
-  | a `Set.member` fv ty = error "unifyVar: occurs check"
-  | otherwise            = Subst.var2type a ty
+  | a `Set.notMember` fv ty
+  = Subst.var2type a ty
+  | otherwise
+  = error $ "unifyVar: occurs check: " ++ show a ++ " ~ " ++ show ty

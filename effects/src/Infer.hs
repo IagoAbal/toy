@@ -3,14 +3,15 @@
 module Infer where
 
 import           Control.Applicative ( (<$>) )
+import           Control.Monad ( when )
 
 import           Data.Foldable ( toList )
-import qualified Data.List as List
 import           Data.Map.Strict ( Map )
 import qualified Data.Map as Map
 import           Data.Set ( Set )
 import qualified Data.Set as Set
 
+import           Constraint ( Constraint(..), Constraints, ($$.), wf )
 import           Subst ( Subst, SubstTarget(..), (++.) )
 import qualified Subst
 import           Syntax
@@ -69,6 +70,8 @@ ti e = (ty,ef,k) -- cgen k ef tiEnv ty
 infer :: Env -> Exp -> TI (Type,Effect,Constraints)
 infer env e = do
   (u,ty,ef,k) <- infer' env e
+  when (wf k) $
+    error "infer: ill-formed constraint set"
   let env' = u $. env
       oEf = cobserve k env' ty ef
   traceINFER env' e ty ef k oEf
@@ -204,36 +207,6 @@ observe env ty eff = sumEff $
         observableRegions    = fr env `Set.union` fr ty
 
 -------------------------------------------------
--- * Effect Constraints
-
-data Constraint = !TyVar :>= !Effect
-  deriving Eq
-
-type Constraints = [Constraint]
-
-instance Show Constraint where
-  show (f :>= s) = show f ++ " >= " ++ show s
-
-instance FV Constraint where
-  fv (f :>= s) = Set.insert f $ fv s
-
-instance FR Constraint where
-  fr (_ :>= s) = fr s
-
-instance SubstTarget Constraint where
-  u $. (f :>= s) = f' :>= (u $. s)
-    where f' = case u $. VarEff f of
-                    VarEff x  -> x
-                    __other__ -> error "cannot substitute constraint LHS"
-
-k2subst :: Constraints -> Subst
-k2subst = foldr (++.) Subst.id . map mk
-  where mk (f :>= s) = Subst.var2effect f (VarEff f +: s)
-
-infixr 9 $$.
-($$.) :: SubstTarget a => Constraints -> a -> a
-k $$. x = k2subst k $. x
-
 -- * Signatures
 
 data CSig = CForallTy !TyVars !Type !Constraints
@@ -274,18 +247,6 @@ cgen k ef env ty = CForallTy vars ty k
 
 cobserve :: Constraints -> Env -> Type -> Effect -> Effect
 cobserve k env ty ef = observe (k $$. env) (k $$. ty) (k $$. ef)
-
--------------------------------------------------
--- * Well-Formed Constraint Sets
-
-wf :: Constraints -> Bool
-wf k = and [ wf_aux c k' | c <- k, let k' = List.delete c k ]
-
-wf1 :: Constraint -> Constraints -> Bool
-wf1 (f :>= s) k' = and
-  [  f `Set.notMember` fv t
-  | InitEff _ t <- toList $ storeEffects $ k' $$. s
-  ]
 
 -------------------------------------------------
 -- * TI Tracing
