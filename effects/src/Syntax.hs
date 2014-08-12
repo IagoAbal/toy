@@ -178,6 +178,9 @@ instance FV Effect where
   fv (WriteEff p)  = fv p
   fv (s1 :+ s2)    = fv s1 `Set.union` fv s2
 
+fev :: FV a => a -> Set TyVar
+fev = Set.filter isEffectVar . fv
+
 instance FV Type where
   fv UnitTy          = Set.empty
   fv (VarTy a)       =  Set.singleton a
