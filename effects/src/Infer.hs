@@ -70,8 +70,8 @@ ti e = (ty,ef,k) -- cgen k ef tiEnv ty
 infer :: Env -> Exp -> TI (Type,Effect,Constraints)
 infer env e = do
   (u,ty,ef,k) <- infer' env e
-  when (wf k) $
-    error "infer: ill-formed constraint set"
+  when (not $ wf k) $
+    error $ "infer: ill-formed constraint set:\n\t" ++ show k
   let env' = u $. env
       oEf = cobserve k env' ty ef
   traceINFER env' e ty ef k oEf
