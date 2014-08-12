@@ -57,6 +57,7 @@ var2type a t
 --         tt' = Map.filterWithKey (\k x -> x /= VarTy k) tt
 
 infixl 7 ++.
+-- | Left-biased concatenation of substitutions
 (++.) :: Subst -> Subst -> Subst
 u1@(Subst r1 e1 t1) ++. u2 =
   Subst (Map.union r1 r2) (Map.union e1 e2) (Map.union t1 t2)
@@ -103,7 +104,7 @@ instance SubstTarget Effect where
   u $. (InitEff p t) = InitEff (u $. p) (u $. t)
   u $. (ReadEff p) = ReadEff (u $. p)
   u $. (WriteEff p) = WriteEff (u $. p)
-  u $. (s1 :+ s2) = (u $. s1) :+ (u $. s2)
+  u $. (s1 :+ s2) = (u $. s1) +: (u $. s2)
 
 instance SubstTarget Type where
   _ $. UnitTy = UnitTy
