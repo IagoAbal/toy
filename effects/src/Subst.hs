@@ -2,6 +2,7 @@
 -- | Substitution for type-level variables
 module Subst where
 
+import qualified Data.List as List
 import           Data.Map.Strict ( Map )
 import qualified Data.Map as Map
 
@@ -15,7 +16,14 @@ data Subst = Subst {
   , effMap :: Map TyVar Effect
   , typMap :: Map TyVar Type
   }
-  deriving Show
+  deriving Eq
+
+instance Show Subst where
+  show (Subst rr ee tt) = List.intercalate " , " $
+    showMap rr ++ showMap ee ++ showMap tt
+    where showMap :: Show a => Map TyVar a -> [String]
+          showMap = map showEntry . Map.toList
+          showEntry (k,v) = show k ++ " -> " ++ show v
 
 id :: Subst
 id = Subst Map.empty Map.empty Map.empty
