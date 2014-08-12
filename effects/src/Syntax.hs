@@ -105,7 +105,9 @@ instance Show Effect where
 (+:) :: Effect -> Effect -> Effect
 EmptyEff +: s2       = s2
 s1       +: EmptyEff = s1
-s1       +: s2       = s1 :+ s2
+s1       +: s2
+        | s1 == s2   = s1
+        | otherwise  = s1 :+ s2
 
 sumEff :: [Effect] -> Effect
 sumEff = foldr (+:) EmptyEff
